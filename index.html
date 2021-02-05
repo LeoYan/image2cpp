@@ -297,7 +297,7 @@
 								<option value="plain">plain bytes</option>
 								<option value="arduino">Arduino code</option>
 								<option value="arduino_single">Arduino code, single bitmap</option>
-								<option value="adafruit_gfx">Adafruit GFXbitmapFont</option>
+								<option value="adafruit_gfx">Adafruit GFXfont</option>
 							</select>
 							<div id="format-caption-container">
 								<div data-caption="arduino">
@@ -310,7 +310,7 @@
 									If multiple images are loaded, generates a single byte array.
 								</div>
 								<div data-caption="adafruit_gfx">
-									Creates a <code>GFXbitmapFont</code> formatted ouput. Used by a modified version of the Adafruit GFX library.
+									Creates a <code>GFXfont</code> formatted ouput. Used by a modified version of the Adafruit GFX library.
 									GitHub project and example <a href="https://github.com/wiredolphin/Adafruit-GFX-Library/tree/bitmap-font" target="_blank">here</a>.
 									<br />
 									<i>First ASCII character</i> value is used only if a glyph identifier of length equal to 1 is not provided for each image. The value itself will be incremented by 1 for each glyph.
@@ -319,9 +319,9 @@
 							<div id="extra-settings-container">
 								<div id="adafruit-gfx-settings" class="table nested-table">
 									<div class="table-row">
-										<div class="table-cell"><label>First ASCII character (dec):</label></div>
+										<div class="table-cell"><label>Bitmap First Offset (dec):</label></div>
 										<div class="table-cell">
-											<input id="first-ascii-char" class="text-input" type="text" name="first-ascii-char" onchange="" value="48"/>
+											<input id="first-ascii-char" class="text-input" type="text" name="first-ascii-char" onchange="" value="0"/>
 										</div>
 									</div>
 									<div class="table-row">
@@ -393,7 +393,7 @@
 
 					// if this was the last pixel of a row or the last pixel of the
 					// image, fill up the rest of our byte with zeros so it always contains 8 bits
-					if ((index != 0 && (((index/4)+1)%(canvasWidth)) == 0 ) || (index == data.length-4)) {
+					if ( index == data.length-4 ) {
 						// for(var i=byteIndex;i>-1;i--){
 							// number += Math.pow(2, i);
 						// }
@@ -1054,48 +1054,50 @@
 					});
 
 					output_string = output_string.replace(/,\s*$/,"");
-					output_string = "const unsigned char "
+					output_string = "const uint8_t "
 						+ getIdentifier()
-						+ "Bitmap"
-						+ " [] PROGMEM = {"
+						+ "Bitmaps"
+						+ "[] PROGMEM = {"
 						+ "\n" + output_string + "\n};\n\n"
-						+ "const GFXbitmapGlyph "
+						+ "const GFXglyph "
 						+ getIdentifier()
-						+ "Glyphs [] PROGMEM = {\n";
+						+ "Glyphs[] PROGMEM = {\n";
 
-					var firstAschiiChar = document.getElementById("first-ascii-char").value;
+					var firstBitmapOffset = document.getElementById("first-ascii-char").value;
 					var xAdvance = parseInt(document.getElementById("x-advance").value);
-					var offset = 0;
-					code = "";
+					var offset = parseInt(firstBitmapOffset);
+          code = "";
+          
+          
 
-					// GFXbitmapGlyph
+					// GFXglyph
 					images.each(function(image) {
 						code += "\t{ "
 							+ offset + ", "
 							+ image.canvas.width + ", "
 							+ image.canvas.height + ", "
-							+ xAdvance + ", "
-							+ "'" + (images.length() == useGlyphs ?
-								image.glyph :
-									String.fromCharCode(firstAschiiChar++)) + "'"
+              + (image.canvas.width+2) + ", 1, "
+              + (-Math.round(image.canvas.height/2)-4)   //use 'A' as standard, so -4
 							+ " }";
 						if(image != images.last()){ code += ","; }
 						code += "// '" + image.glyph + "'\n";
-						offset += image.canvas.width;
+						offset += Math.ceil((image.canvas.width * image.canvas.height)/8); 
 					});
 					code += "};\n";
 					output_string += code;
 
-					// GFXbitmapFont
-					output_string += "\nconst GFXbitmapFont "
+          // GFXfont
+          var imageNum = 0x20+images.length() - 1;
+					output_string += "\nconst GFXfont "
 						+ getIdentifier()
 						+ "Font PROGMEM = {\n"
 						+ "\t(uint8_t *)"
-						+ getIdentifier() + "Bitmap,\n"
-						+ "\t(GFXbitmapGlyph *)"
+						+ getIdentifier() + "Bitmaps,\n"
+						+ "\t(GFXglyph *)"
 						+ getIdentifier()
 						+ "Glyphs,\n"
-						+ "\t" + images.length()
+            + "\t 0x20," 
+            + imageNum +", 15"
 						+ "\n};\n";
 					break;
 				}
